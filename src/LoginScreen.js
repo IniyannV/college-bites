@@ -1,17 +1,38 @@
-import { useState } from 'react';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import './login.css'; // Ensure this import is included to load the CSS
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 function App() {
   const auth = getAuth();
   const navigate = useNavigate();
+  const db = getFirestore();
   
   // State variables for managing authentication state, email, password, and error messages
   const [authing, setAuthing] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const name = user.displayName;
+        const uid = user.uid;
+
+        const docRef = doc(db, "users", uid);
+        await setDoc(docRef, {
+          name: name,
+          email: user.email,
+          createdAt: new Date()
+          // Add other user data as needed
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth, db]);
 
   const signInWithGoogle = async () => {
     setAuthing(true);
@@ -20,6 +41,27 @@ function App() {
       // Use Firebase to sign in with Google
       const response = await signInWithPopup(auth, new GoogleAuthProvider());
       console.log(response.user.uid);
+      const userDocRef = doc(db, 'users', response.user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const name = response.user.displayName;
+      const uid = response.user.uid;
+
+      const docRef = doc(db, "users", uid);
+      await setDoc(docRef, {
+          name: name,
+          email: response.user.email,
+          createdAt: new Date()
+          // Add other user data as needed
+      });
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const createdAt = userData.createdAt.toDate();
+        const formattedDate = createdAt.toLocaleDateString();
+        const formattedTime = createdAt.toLocaleTimeString();
+        alert(`Welcome ${userData.name} (${userData.email}) - Created on ${formattedDate} at ${formattedTime}`);
+      }
+      
       navigate('/');
     } catch (error) {
       console.error('Error during sign-in with Google:', error);

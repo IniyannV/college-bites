@@ -3,6 +3,13 @@ import MenuBar from './MenuBar';
 import ListingDriver from './listingDriver';
 import './driverPortal.css';
 import config from './CONSTANTS.js';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getAuth, initializeApp } from 'firebase/app';
+import firebaseConfig from './firebaseConfig'; // Import your Firebase configuration
+
+// Initialize Firebase app
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 const DriverPortal = () => {
   const [showPopup, setShowPopup] = useState(false);
@@ -18,7 +25,7 @@ const DriverPortal = () => {
     setNewListing((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleNewListingSubmit = () => {
+  const handleNewListingSubmit = async () => {
     if (newListing.name && newListing.deliveryDate && newListing.destination) {
       const newEntry = {
         name: newListing.name,
@@ -28,6 +35,15 @@ const DriverPortal = () => {
         deliveryDate: newListing.deliveryDate,
         destination: newListing.destination,
       };
+      const docRef = doc(db, "drivers");
+            await setDoc(doc(docRef, newEntry.id.toString()), {
+              name: newListing.name,
+              address: newListing.address,
+              number: newListing.phoneNumber,
+              id: newEntry.id,
+              deliveryDate: newListing.deliveryDate,
+              destination: newListing.destination
+            });
       config.driverInfo.push(newEntry);
       console.error(config.driverInfo);
       setListings((prevListings) => [...prevListings, newEntry]);
@@ -51,9 +67,6 @@ const DriverPortal = () => {
         <h1 className='push listings-empty-error'>
           No Ride Scheduled Currently
         </h1>
-      ) : (
-        <>
-          <div className='push'>
             <span className='date list-header'>Delivery Date</span>
             <span className='location list-header'>Location</span>
           </div>
